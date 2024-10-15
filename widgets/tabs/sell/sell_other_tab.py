@@ -19,6 +19,6 @@ class SellOtherTab(QWidget, Logger):
         self.config = window.config
         
         vbox = QVBoxLayout(self)
-        vbox.addWidget(QLabel(_("Test")))
+        vbox.addWidget(QLabel(_("TODO")))
         vbox.addStretch()
 

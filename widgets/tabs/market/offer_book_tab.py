@@ -20,6 +20,6 @@ class OfferBookTab(QWidget, Logger):
         self.config = window.config
         
         vbox = QVBoxLayout(self)
-        vbox.addWidget(QLabel(_("Offer Book Inside")))
+        vbox.addWidget(QLabel(_("TODO")))
         vbox.addStretch()
 
