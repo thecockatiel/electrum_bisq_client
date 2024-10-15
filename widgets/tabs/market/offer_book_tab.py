@@ -27,6 +27,7 @@ class OfferBookTab(QWidget, Logger):
         self.offer_book_chart = OfferBookChart(self)
         vbox.addWidget(self.offer_book_chart)
         vbox.addStretch()
+        vbox.setContentsMargins(2, 2, 2, 2)
         
         sell_prices = np.array([53000, 53500, 55400, 55600, 55600, 60000, 63400])
         sell_volumes = np.array([0.51, 0.42, 0.39, 0.37, 0.36, 0.36, 0.25])
