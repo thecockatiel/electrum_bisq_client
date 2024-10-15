@@ -9,6 +9,7 @@ from .tabs.market_tab import MarketTab
 from .tabs.buy_tab import BuyTab
 from .tabs.sell_tab import SellTab
 from .tabs.portfolio_tab import PortfolioTab
+from .tabs.funds_tab import FundsTab
 from .styles import MainTabsStyle
 
 if TYPE_CHECKING:
@@ -30,11 +31,13 @@ class BisqTab(QWidget, Logger):
         self.buy_tab = BuyTab(window, self) 
         self.sell_tab = SellTab(window, self) 
         self.portfolio_tab = PortfolioTab(window, self) 
+        self.funds_tab = FundsTab(window, self) 
         tabs.setStyleSheet(MainTabsStyle)
         tabs.addTab(self.market_tab, _('Market'))
         tabs.addTab(self.buy_tab, _('Buy'))
         tabs.addTab(self.sell_tab, _('Sell'))
         tabs.addTab(self.portfolio_tab, _('Portfolio'))
+        tabs.addTab(self.funds_tab, _('Funds'))
         vbox.addWidget(tabs)
         vbox.setContentsMargins(2, 2, 2, 2)
 
