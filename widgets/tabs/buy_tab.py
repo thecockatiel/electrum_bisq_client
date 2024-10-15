@@ -5,10 +5,10 @@ from PyQt6.QtWidgets import (QVBoxLayout, QWidget, QTabWidget)
 
 from electrum.i18n import _
 from electrum.logging import Logger
-from .buy.bitcoin import BuyBitcoinTab
-from .buy.bsq import BuyBsqTab
-from .buy.xmr import BuyXmrTab
-from .buy.other import BuyOtherTab
+from .buy.buy_bitcoin_tab import BuyBitcoinTab
+from .buy.buy_bsq_tab import BuyBsqTab
+from .buy.buy_xmr_tab import BuyXmrTab
+from .buy.buy_other_tab import BuyOtherTab
 from ..styles import ChildTabStyle
 
 if TYPE_CHECKING:
