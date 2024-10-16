@@ -1,2 +1,2 @@
-grpcio
+grpcio~=1.67.0
 grpcio-tools
