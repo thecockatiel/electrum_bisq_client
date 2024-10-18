@@ -2,6 +2,8 @@ import os
 import platform
 from pathlib import Path
 
+app_name = "bisq_light"
+
 def get_user_data_dir():
     system = platform.system()
     
@@ -14,7 +16,12 @@ def get_user_data_dir():
     # For Unix/Linux systems
     return Path(os.path.expanduser("~"), ".local", "share")
 
-def create_data_dir(app_name):
+def create_and_get_data_dir():
     data_dir = get_user_data_dir() / app_name
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return data_dir
+
+def create_and_get_tor_dir():
+    data_dir = get_user_data_dir() / app_name / "tor"
     data_dir.mkdir(parents=True, exist_ok=True)
     return data_dir
