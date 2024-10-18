@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 from electrum.plugin import hook
-from .bisq import BisqPlugin
+from .bisq_plugin import BisqPlugin
 from .widgets.bisq_tab import BisqTab
 import os
 from functools import lru_cache

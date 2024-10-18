@@ -1,5 +1,4 @@
-from .bisq import BisqPlugin
-
+from .bisq_plugin import BisqPlugin
 
 class BisqCmdLineHandler():
 
