@@ -7,7 +7,7 @@ make sure to update these when necessary
 
 ```bash
 # install the required tools:
-python -m pip install -r requirements.txt
+python -m pip install -r ../requirements.txt
 # generate the python files
 mkdir -p ./generated
 python -m grpc_tools.protoc -I. --python_out=./generated --pyi_out=./generated --grpc_python_out=./generated grpc.proto pb.proto
