@@ -17,11 +17,16 @@ def get_user_data_dir():
     return Path(os.path.expanduser("~"), ".local", "share")
 
 def create_and_get_data_dir():
-    data_dir = get_user_data_dir() / app_name
-    data_dir.mkdir(parents=True, exist_ok=True)
-    return data_dir
+    path = get_user_data_dir().joinpath(app_name) 
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+def create_and_get_download_dir():
+    path = get_user_data_dir().joinpath(app_name, "downloads")
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
 def create_and_get_tor_dir():
-    data_dir = get_user_data_dir() / app_name / "tor"
-    data_dir.mkdir(parents=True, exist_ok=True)
-    return data_dir
+    path = get_user_data_dir().joinpath(app_name, "tor")
+    path.mkdir(parents=True, exist_ok=True)
+    return path
