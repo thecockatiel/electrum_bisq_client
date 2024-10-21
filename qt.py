@@ -30,6 +30,7 @@ class Plugin(BisqPlugin):
         
     @hook
     def init_qt(self, gui: 'ElectrumGui'):
+        super().init_qt(gui)
         if self._init_qt_received:  # only need/want the first signal
             return
         self._init_qt_received = True
