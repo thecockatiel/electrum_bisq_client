@@ -5,13 +5,16 @@ import os
 import re
 
 from electrum.logging import get_logger
-from .utils.dirs import create_and_get_tor_dir
+from electrum.util import get_asyncio_loop, log_exceptions
 from .utils.network import download_file 
 import tarfile
-from twisted.internet import reactor
+from twisted.internet import reactor, threads
 from twisted.internet.defer import Deferred
 from PyQt6.QtCore import pyqtSignal, QObject
 import socket
+from pathlib import Path
+import asyncio
+from .aio import run_asyncio_task
 
 from typing import TYPE_CHECKING
 
@@ -53,57 +56,14 @@ def get_tor_bin_dir_name(version=CURRENT_TOR_VERSION) -> str:
     else:
         raise RuntimeError(f"Failed to extract tor path from {name}")
 
-def find_tor_in_path():
-    """
-    Tries to find tor binary in the system PATH and returns the path to the binary. Returns None if not found.
-    """
-    os_name = platform.system().lower() 
-    if os_name != "windows":
-        return txtorcon.util.find_tor_binary()
-    else:
-        for path in os.environ["PATH"].split(os.pathsep):
-            path_to_try = os.path.join(path, "tor.exe")
-            if os.path.isfile(path_to_try):
-                return path_to_try
-    return None
-
-def find_tor_in_data():
-    """
-    Tries to find tor binary in app's user data directory Returns None if not found.
-    """
-    tor_dir = create_and_get_tor_dir()
-    os_name = platform.system().lower() 
-    expected_bin_dir = tor_dir.joinpath(get_tor_bin_dir_name(), "tor")
-    
-    if expected_bin_dir.exists():
-        if os_name == "windows":
-            path = expected_bin_dir.joinpath("tor.exe")
-            if path.is_file():
-                return path
-        else:
-            path = expected_bin_dir.joinpath("tor")
-            if path.is_file():
-                return path
-
-    return None
-
-def download_and_extract_tor():
-    """
-    Downloads tor binary and extracts it to the app's user data directory.
-    """
-    tor_bin_url = get_tor_binary_url()
-    tor_bin_dir = create_and_get_tor_dir().joinpath(get_tor_bin_dir_name())
-    tor_bin_dir.mkdir(parents=True, exist_ok=True)
-    
-    downloaded_file = download_file(tor_bin_url, skip_if_exists=True)
-    archive = tarfile.open(str(downloaded_file))
-    archive.extractall(str(tor_bin_dir))
-    archive.close()
-    
-    return find_tor_in_data()
-
 twisted_thread = None
 tor: txtorcon.Tor = None
+
+def run_twisted():
+    reactor.run(installSignalHandlers=False)
+
+twisted_thread = threading.Thread(target=run_twisted, daemon=True)
+twisted_thread.start()
 
 class TorManager(QObject):
     """
@@ -112,16 +72,13 @@ class TorManager(QObject):
     proxy_port = pyqtSignal(str)
     having_trouble = pyqtSignal()
     logger = get_logger("bisq tor module")
-
-    def twisted_thread(self):
-        # Start the Twisted reactor in the current thread
-        reactor.run(installSignalHandlers=False)
+    
+    def __init__(self, root_dir: Path, parent=None):
+        super().__init__(parent)
+        self.root_dir = root_dir
         
     async def __setup_tor(self):
-        global tor, twisted_thread
-        if twisted_thread is None:
-            twisted_thread = threading.Thread(target=self.twisted_thread, daemon=True)
-            twisted_thread.start()
+        global tor
         if tor == None:
             try:
                 with socket.create_connection(("127.0.0.1", "9050"), timeout=5):
@@ -131,15 +88,15 @@ class TorManager(QObject):
             except Exception as e:
                 pass
             
-            tor_bin_path = find_tor_in_data()
+            tor_bin_path = self.find_tor_in_data()
 
             if tor_bin_path is None:
-                tor_bin_path = download_and_extract_tor()
+                tor_bin_path = await run_asyncio_task(self.download_and_extract_tor(), parent=self)
                 if tor_bin_path is None:
                     self.having_trouble.emit()
                     return
 
-            tor_data_path = create_and_get_tor_dir().joinpath("data")
+            tor_data_path = self.create_and_get_tor_dir().joinpath("data")
             tor_data_path.mkdir(parents=True, exist_ok=True)
             tor_bin_dir = tor_bin_path.parent
             
@@ -179,15 +136,70 @@ class TorManager(QObject):
                 f.write(tor_config.create_torrc())
 
 
-            tor = await txtorcon.launch(reactor, progress_updates=self.logger.info,
+            tor = await txtorcon.launch(reactor, 
+                            progress_updates=lambda percent, tag, summary: self.logger.info(f"{percent}%: {tag} - {summary}"),
                             tor_binary=str(tor_bin_path),
                             data_directory=str(tor_data_path),
                             kill_on_stderr=True,
                             _tor_config=tor_config)
         socks_port = await tor.protocol.get_conf("SOCKSPort")
         self.proxy_port.emit(str(socks_port))
+
+    def create_and_get_tor_dir(self):
+        path = self.root_dir.joinpath("tor")
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+    
+    def find_tor_in_data(self):
+        """
+        Tries to find tor binary in app's user data directory Returns None if not found.
+        """
+        tor_dir = self.create_and_get_tor_dir()
+        os_name = platform.system().lower() 
+        expected_bin_dir = tor_dir.joinpath(get_tor_bin_dir_name(), "tor")
+        
+        if expected_bin_dir.exists():
+            if os_name == "windows":
+                path = expected_bin_dir.joinpath("tor.exe")
+                if path.is_file():
+                    return path
+            else:
+                path = expected_bin_dir.joinpath("tor")
+                if path.is_file():
+                    return path
+
+        return None
+    
+    @log_exceptions
+    async def download_and_extract_tor(self):
+        """
+        Downloads tor binary and extracts it to the app's user data directory.
+        """
+        tor_bin_url = get_tor_binary_url()
+        tor_bin_dir = self.create_and_get_tor_dir().joinpath(get_tor_bin_dir_name())
+        tor_bin_dir.mkdir(parents=True, exist_ok=True)
+        
+        try:
+            downloaded_file = await download_file(tor_bin_url, self.root_dir.joinpath("downloads"), skip_if_exists=True)
+        except Exception as e:
+            self.logger.error(f"Failed to download tor binary: {e}")
+            return None
+        try: 
+            with tarfile.open(str(downloaded_file)) as archive:
+                archive.extractall(str(tor_bin_dir))
+        except:
+            self.logger.error("Failed to extract tor binary. archive corrupted? removing the archive to download again")
+            try:
+                downloaded_file.unlink(True)
+            except Exception as e:
+                print(e)
+                pass
+            return None
+        
+        return self.find_tor_in_data()
     
     def setup_tor(self):
         d = Deferred.fromCoroutine(self.__setup_tor())
-        d.addErrback(lambda _: self.having_trouble.emit())
+        d.addErrback(lambda e: [self.logger.error(f"Failed to setup tor: {e}"), self.having_trouble.emit()])
         return d
+
