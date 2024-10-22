@@ -5,7 +5,7 @@ import os
 import re
 
 from electrum.logging import get_logger
-from electrum.util import get_asyncio_loop, log_exceptions
+from electrum.util import log_exceptions, detect_tor_socks_proxy
 from .utils.network import download_file 
 import tarfile
 from twisted.internet import reactor, threads
@@ -13,7 +13,6 @@ from twisted.internet.defer import Deferred
 from PyQt6.QtCore import pyqtSignal, QObject
 import socket
 from pathlib import Path
-import asyncio
 from .aio import run_asyncio_task
 
 from typing import TYPE_CHECKING
@@ -81,9 +80,10 @@ class TorManager(QObject):
         global tor
         if tor == None:
             try:
-                with socket.create_connection(("127.0.0.1", "9050"), timeout=5):
-                    self.logger.debug("Tor is already running at: 9050. skipping tor launch")
-                    self.proxy_port.emit(str(9050))
+                net_addr = detect_tor_socks_proxy()
+                if net_addr:
+                    self.proxy_port.emit(str(net_addr[1]))
+                    self.logger.debug(f"Tor is already running at: {net_addr[0]}:{net_addr[1]}. skipping tor launch")
                     return
             except Exception as e:
                 pass
@@ -143,7 +143,7 @@ class TorManager(QObject):
                             kill_on_stderr=True,
                             _tor_config=tor_config)
         socks_port = await tor.protocol.get_conf("SOCKSPort")
-        self.proxy_port.emit(str(socks_port))
+        self.proxy_port.emit(str(socks_port["SocksPort"]))
 
     def create_and_get_tor_dir(self):
         path = self.root_dir.joinpath("tor")
